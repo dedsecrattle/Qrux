@@ -12,3 +12,4 @@ build-dir = "book"
 git-repository-url = "https://github.com/dedsecrattle/Qrux"
 edit-url-template = "https://github.com/dedsecrattle/Qrux/edit/main/docs/src/{path}"
 smart-punctuation = true
+favicon = "images/qrux-logo.png"

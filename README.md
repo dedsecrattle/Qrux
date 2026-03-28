@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="branding/qrux-logo.png" alt="Qrux logo" width="200" />
+</p>
+
 # Qrux
 
 **Qrux** is a QUIC/HTTP3-terminating proxy that forwards traffic to plain TCP/HTTP backends.
