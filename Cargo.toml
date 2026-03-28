@@ -4,9 +4,12 @@ version = "0.1.0"
 edition = "2021"
 description = "Qrux — a QUIC/HTTP3 terminating proxy to TCP backends"
 license = "MIT"
+readme = "README.md"
 repository = "https://github.com/dedsecrattle/Qrux"
 homepage = "https://dedsecrattle.github.io/Qrux/"
 documentation = "https://dedsecrattle.github.io/Qrux/"
+keywords = ["quic", "http3", "proxy", "h3", "reverse-proxy"]
+categories = ["network-programming", "web-programming"]
 
 [lib]
 name = "quicproxy"
