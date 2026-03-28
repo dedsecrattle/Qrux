@@ -10,25 +10,25 @@ use tokio::net::TcpListener;
 
 lazy_static! {
     pub static ref HTTP_REQUESTS_TOTAL: CounterVec = register_counter_vec!(
-        "quicproxy_http_requests_total",
+        "qrux_http_requests_total",
         "Total number of HTTP requests",
         &["method", "status", "upstream"]
     )
     .unwrap();
     pub static ref HTTP_REQUEST_DURATION_SECONDS: HistogramVec = register_histogram_vec!(
-        "quicproxy_http_request_duration_seconds",
+        "qrux_http_request_duration_seconds",
         "HTTP request duration in seconds",
         &["method", "upstream"],
         vec![0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]
     )
     .unwrap();
     pub static ref ACTIVE_CONNECTIONS: Gauge = register_gauge!(
-        "quicproxy_active_connections",
+        "qrux_active_connections",
         "Number of active QUIC connections"
     )
     .unwrap();
     pub static ref UPSTREAM_POOL_SIZE: prometheus::GaugeVec = prometheus::register_gauge_vec!(
-        "quicproxy_upstream_pool_connections",
+        "qrux_upstream_pool_connections",
         "Number of pooled connections per upstream",
         &["upstream"]
     )

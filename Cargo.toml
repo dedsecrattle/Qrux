@@ -1,5 +1,5 @@
 [package]
-name = "quicproxy"
+name = "qrux"
 version = "0.1.0"
 edition = "2021"
 description = "Qrux — a QUIC/HTTP3 terminating proxy to TCP backends"
@@ -12,11 +12,11 @@ keywords = ["quic", "http3", "proxy", "h3", "reverse-proxy"]
 categories = ["network-programming", "web-programming"]
 
 [lib]
-name = "quicproxy"
+name = "qrux"
 path = "src/lib.rs"
 
 [[bin]]
-name = "quicproxy"
+name = "qrux"
 path = "src/main.rs"
 
 [[example]]

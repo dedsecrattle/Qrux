@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Test script for quicproxy
+# Test script for qrux
 
 set -e
 
-echo "=== quicproxy Test Script ==="
+echo "=== qrux Test Script ==="
 echo
 
 # Check if proxy is running

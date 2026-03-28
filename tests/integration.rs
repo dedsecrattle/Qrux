@@ -1,4 +1,4 @@
-//! Integration tests for quicproxy
+//! Integration tests for qrux
 //!
 //! These tests spawn a real proxy and backend, testing the full request flow.
 
@@ -280,7 +280,7 @@ match = "*"
 upstream = "127.0.0.1:9000"
 "#;
 
-    let config: quicproxy::config::Config = toml::from_str(config_str).unwrap();
+    let config: qrux::config::Config = toml::from_str(config_str).unwrap();
 
     assert_eq!(config.server.listen, "0.0.0.0:4433".parse().unwrap());
     assert_eq!(config.routes.len(), 2);
@@ -311,7 +311,7 @@ match = "*"
 upstream = "default:80"
 "#;
 
-    let config: quicproxy::config::Config = toml::from_str(config_str).unwrap();
+    let config: qrux::config::Config = toml::from_str(config_str).unwrap();
 
     assert_eq!(config.server.listen, "0.0.0.0:4433".parse().unwrap());
     assert_eq!(
@@ -335,20 +335,20 @@ upstream = "default:80"
 async fn test_router_matching() {
     install_crypto_provider();
 
-    use quicproxy::router::Router;
+    use qrux::router::Router;
 
     let routes = vec![
-        quicproxy::config::Route {
+        qrux::config::Route {
             hostname: "api.example.com".to_string(),
             upstream: Some("127.0.0.1:8080".to_string()),
             upstreams: None,
         },
-        quicproxy::config::Route {
+        qrux::config::Route {
             hostname: "ws.example.com".to_string(),
             upstream: Some("127.0.0.1:9000".to_string()),
             upstreams: None,
         },
-        quicproxy::config::Route {
+        qrux::config::Route {
             hostname: "*".to_string(),
             upstream: Some("127.0.0.1:3000".to_string()),
             upstreams: None,
@@ -376,9 +376,9 @@ async fn test_router_matching() {
 async fn test_router_load_balancing() {
     install_crypto_provider();
 
-    use quicproxy::router::Router;
+    use qrux::router::Router;
 
-    let routes = vec![quicproxy::config::Route {
+    let routes = vec![qrux::config::Route {
         hostname: "app.example.com".to_string(),
         upstream: None,
         upstreams: Some(vec![
@@ -406,7 +406,7 @@ async fn test_router_load_balancing() {
 async fn test_metrics_recording() {
     install_crypto_provider();
 
-    use quicproxy::metrics;
+    use qrux::metrics;
 
     // Record some test requests
     metrics::record_request("GET", 200, "test-upstream:80", 0.05);
@@ -417,6 +417,6 @@ async fn test_metrics_recording() {
     let output = metrics::gather_metrics();
 
     // Verify metrics are present
-    assert!(output.contains("quicproxy_http_requests_total"));
-    assert!(output.contains("quicproxy_http_request_duration_seconds"));
+    assert!(output.contains("qrux_http_requests_total"));
+    assert!(output.contains("qrux_http_request_duration_seconds"));
 }

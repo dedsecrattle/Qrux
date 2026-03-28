@@ -101,20 +101,20 @@ upstream = "127.0.0.1:8080"
 
 ## Prometheus Metrics
 
-Available at `http://127.0.0.1:9090/metrics`. Names use the `quicproxy_` prefix (crate name).
+Available at `http://127.0.0.1:9090/metrics`. Metric names use the `qrux_` prefix.
 
 ```
 # Total requests by method, status, and upstream
-quicproxy_http_requests_total{method="GET",status="200",upstream="example.com:80"} 42
+qrux_http_requests_total{method="GET",status="200",upstream="example.com:80"} 42
 
 # Request latency histogram
-quicproxy_http_request_duration_seconds_bucket{method="GET",upstream="example.com:80",le="0.1"} 40
+qrux_http_request_duration_seconds_bucket{method="GET",upstream="example.com:80",le="0.1"} 40
 
 # Active QUIC connections
-quicproxy_active_connections 5
+qrux_active_connections 5
 
 # Pooled upstream connections
-quicproxy_upstream_pool_connections{upstream="example.com:80"} 3
+qrux_upstream_pool_connections{upstream="example.com:80"} 3
 ```
 
 ## Browser Support (Alt-Svc)
