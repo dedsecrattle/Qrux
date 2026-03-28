@@ -1,0 +1,21 @@
+# Example: build and run Qrux with a mounted config and TLS material.
+# 1. Copy docker/proxy.toml.example to docker/proxy.toml and edit routes/upstreams.
+# 2. Put cert.pem and key.pem in docker/certs/ (or mount your own directory).
+# 3. docker compose up --build
+#
+# QUIC requires UDP: publish 8443 as UDP (shown below).
+
+services:
+  qrux:
+    build: .
+    image: qrux:local
+    ports:
+      - "8443:8443/udp"
+      - "8444:8444"
+      - "9090:9090"
+    volumes:
+      - ./docker/proxy.toml:/etc/qrux/proxy.toml:ro
+      - ./docker/certs:/etc/qrux/certs:ro
+    environment:
+      RUST_LOG: ${RUST_LOG:-qrux=info}
+    restart: unless-stopped

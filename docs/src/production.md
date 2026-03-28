@@ -30,3 +30,7 @@ The config must include at least one **`[[routes]]`** row with `upstream` or `up
 
 - **Logs:** `RUST_LOG=qrux=info` (or `debug`). Default filter in the binary includes `qrux=info`.
 - **Metrics:** Prometheus scrape on `metrics_listen`; see [Metrics](metrics.md).
+
+## Docker
+
+The repository includes a `Dockerfile`, `docker-compose.yml`, and `docker/proxy.toml.example`. **Publish QUIC with UDP** (`-p 8443:8443/udp`). CI can push to **GitHub Container Registry** (`ghcr.io/<owner>/qrux`); see the README for `docker build`, `docker compose`, and pull examples.

@@ -1,0 +1,13 @@
+/target
+/book
+/.git
+/.github
+/docs
+**/*.md
+.env
+.env.*
+certs/*.pem
+*.key
+.DS_Store
+.idea
+.vscode

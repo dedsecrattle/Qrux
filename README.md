@@ -182,6 +182,51 @@ See [Cloudflare's 0-RTT guide](https://blog.cloudflare.com/introducing-0-rtt/) f
 cargo build --release
 ```
 
+## Docker
+
+Images are built from the repo root `Dockerfile` (Debian Bookworm, multi-stage). **QUIC uses UDP** — map the QUIC port as UDP when running the container.
+
+### Build locally
+
+```bash
+docker build -t qrux:local .
+```
+
+### Run (example)
+
+Mount a config file and TLS PEMs (paths inside the config must match the mount, e.g. `/etc/qrux/certs/`):
+
+```bash
+docker run --rm \
+  -p 8443:8443/udp \
+  -p 8444:8444 \
+  -p 9090:9090 \
+  -v "$(pwd)/proxy.toml:/etc/qrux/proxy.toml:ro" \
+  -v "$(pwd)/certs:/etc/qrux/certs:ro" \
+  -e RUST_LOG=qrux=info \
+  qrux:local
+```
+
+### Compose
+
+```bash
+cp docker/proxy.toml.example docker/proxy.toml
+# Place cert.pem and key.pem in docker/certs/
+docker compose up --build
+```
+
+### GitHub Container Registry
+
+On pushes to `main`/`master` and version tags `v*`, the [Docker workflow](.github/workflows/docker.yml) publishes to **`ghcr.io/<owner>/qrux`** (e.g. `ghcr.io/dedsecrattle/qrux`). Make the package public in the repo’s Packages settings if you want anonymous `docker pull`.
+
+After the first push, pull with:
+
+```bash
+docker pull ghcr.io/dedsecrattle/qrux:latest
+```
+
+(Replace `dedsecrattle` with your GitHub user or org if different.)
+
 ## License
 
 MIT

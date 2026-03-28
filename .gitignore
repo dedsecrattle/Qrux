@@ -19,6 +19,7 @@ Thumbs.db
 
 # Certificates (don't commit private keys)
 certs/*.pem
+docker/certs/*.pem
 *.key
 
 # Logs
