@@ -215,17 +215,42 @@ cp docker/proxy.toml.example docker/proxy.toml
 docker compose up --build
 ```
 
-### GitHub Container Registry
+### GitHub Container Registry (GHCR)
 
-On pushes to `main`/`master` and version tags `v*`, the [Docker workflow](.github/workflows/docker.yml) publishes to **`ghcr.io/<owner>/qrux`** (e.g. `ghcr.io/dedsecrattle/qrux`). Make the package public in the repo’s Packages settings if you want anonymous `docker pull`.
-
-After the first push, pull with:
+On pushes to `main`/`master` and version tags `v*`, the [Docker workflow](.github/workflows/docker.yml) publishes to **`ghcr.io/<owner>/qrux`**. Make the package **public** under the repo’s **Packages** settings if you want anonymous `docker pull`.
 
 ```bash
 docker pull ghcr.io/dedsecrattle/qrux:latest
 ```
 
-(Replace `dedsecrattle` with your GitHub user or org if different.)
+### Docker Hub
+
+To **also push the same image to [Docker Hub](https://hub.docker.com/)** from CI:
+
+1. Create an **access token** on Docker Hub: [Account settings → Security → New access token](https://hub.docker.com/settings/security).
+2. In your GitHub repo → **Settings → Secrets and variables → Actions**:
+   - **Repository secret:** `DOCKERHUB_TOKEN` = that token.
+   - **Repository variable:** `DOCKERHUB_USERNAME` = your Docker Hub username (e.g. `dedsecrattle`).
+
+The next workflow run will log in to Docker Hub and push **`$DOCKERHUB_USERNAME/qrux`** with the same tags as GHCR (`latest`, semver on `v*` tags, etc.).
+
+Pull from Docker Hub:
+
+```bash
+docker pull dedsecrattle/qrux:latest
+```
+
+(Use your Docker Hub namespace instead of `dedsecrattle` if different.)
+
+### Push manually (any registry)
+
+From a local build:
+
+```bash
+docker build -t myuser/qrux:v0.1.1 .
+docker login
+docker push myuser/qrux:v0.1.1
+```
 
 ## License
 

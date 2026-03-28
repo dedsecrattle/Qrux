@@ -33,4 +33,4 @@ The config must include at least one **`[[routes]]`** row with `upstream` or `up
 
 ## Docker
 
-The repository includes a `Dockerfile`, `docker-compose.yml`, and `docker/proxy.toml.example`. **Publish QUIC with UDP** (`-p 8443:8443/udp`). CI can push to **GitHub Container Registry** (`ghcr.io/<owner>/qrux`); see the README for `docker build`, `docker compose`, and pull examples.
+The repository includes a `Dockerfile`, `docker-compose.yml`, and `docker/proxy.toml.example`. **Publish QUIC with UDP** (`-p 8443:8443/udp`). CI pushes to **GitHub Container Registry** (`ghcr.io/<owner>/qrux`); optionally configure **`DOCKERHUB_USERNAME`** (variable) and **`DOCKERHUB_TOKEN`** (secret) to push the same tags to **Docker Hub**. See the README for `docker build`, `docker compose`, `docker pull`, and manual `docker push`.
