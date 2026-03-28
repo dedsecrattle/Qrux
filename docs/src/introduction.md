@@ -17,10 +17,11 @@ Client (HTTP/3 over QUIC) ──→ [Qrux] ──→ Backend (HTTP/1.1 over TCP)
 - **HTTPS fallback** with `Alt-Svc` for browser HTTP/3 discovery
 - **0-RTT** support for returning clients (understand the tradeoffs — see [Security](security.md))
 
-## Repository
+## Links
 
+- **Crates.io (releases, metadata):** [crates.io/crates/qrux](https://crates.io/crates/qrux)
 - **Source code & issues:** [github.com/dedsecrattle/Qrux](https://github.com/dedsecrattle/Qrux)
-- **Documentation (GitHub Pages):** [dedsecrattle.github.io/Qrux](https://dedsecrattle.github.io/Qrux/) (after the docs workflow is enabled)
+- **This book (GitHub Pages):** [dedsecrattle.github.io/Qrux](https://dedsecrattle.github.io/Qrux/)
 
 ## License
 

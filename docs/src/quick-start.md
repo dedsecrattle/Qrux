@@ -1,5 +1,15 @@
 # Quick start
 
+## Install from crates.io
+
+Qrux is on **[crates.io](https://crates.io/crates/qrux)**. With the [Rust toolchain](https://rustup.rs/) installed:
+
+```bash
+cargo install qrux
+```
+
+This installs the `qrux` binary (usually under `~/.cargo/bin`). Use the same `qrux --config …` commands as below.
+
 ## 1. TLS certificates
 
 For local development, [mkcert](https://github.com/FiloSottile/mkcert) is convenient:
