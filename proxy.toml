@@ -1,0 +1,14 @@
+[server]
+listen = "0.0.0.0:8443"
+cert = "./certs/cert.pem"
+key = "./certs/key.pem"
+metrics_listen = "127.0.0.1:9090"
+https_listen = "0.0.0.0:8444"  # HTTPS fallback with Alt-Svc
+
+[[routes]]
+match = "*"
+# Single upstream
+upstream = "example.com:80"
+
+# Or multiple upstreams for load balancing:
+# upstreams = ["server1.example.com:80", "server2.example.com:80"]

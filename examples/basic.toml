@@ -1,0 +1,21 @@
+# quicproxy example configuration
+# Run with: quicproxy --config examples/basic.toml
+
+[server]
+listen = "0.0.0.0:4433"
+cert = "./certs/cert.pem"
+key = "./certs/key.pem"
+
+# Route requests by hostname (matched via TLS SNI or Host header)
+[[routes]]
+match = "api.example.com"
+upstream = "127.0.0.1:8080"
+
+[[routes]]
+match = "ws.example.com"
+upstream = "127.0.0.1:9000"
+
+# Wildcard route - catches everything else
+[[routes]]
+match = "*"
+upstream = "127.0.0.1:8080"
