@@ -1,5 +1,5 @@
-# quicproxy example configuration
-# Run with: quicproxy --config examples/basic.toml
+# Qrux example configuration
+# Run with: quicproxy --config examples/basic.toml  (binary name from Cargo)
 
 [server]
 listen = "0.0.0.0:4433"

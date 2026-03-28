@@ -58,4 +58,4 @@ curl -k https://localhost:8444/
 cargo build --release
 ```
 
-The binary is at `target/release/quicproxy`.
+The release binary is at `target/release/quicproxy` (the executable name follows the Rust crate; the project is **Qrux**).

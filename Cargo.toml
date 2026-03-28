@@ -2,7 +2,7 @@
 name = "quicproxy"
 version = "0.1.0"
 edition = "2021"
-description = "A QUIC/HTTP3 terminating proxy to TCP backends"
+description = "Qrux — a QUIC/HTTP3 terminating proxy to TCP backends"
 license = "MIT"
 repository = "https://github.com/dedsecrattle/Qrux"
 homepage = "https://dedsecrattle.github.io/Qrux/"

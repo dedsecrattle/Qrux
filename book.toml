@@ -1,7 +1,7 @@
 [book]
-title = "quicproxy"
-authors = ["quicproxy contributors"]
-description = "QUIC/HTTP3 terminating proxy — documentation"
+title = "Qrux"
+authors = ["Qrux contributors"]
+description = "Qrux — QUIC/HTTP3 terminating proxy documentation"
 language = "en"
 src = "docs/src"
 

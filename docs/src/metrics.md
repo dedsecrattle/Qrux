@@ -1,6 +1,8 @@
 # Prometheus metrics
 
-When `metrics_listen` is set, quicproxy serves Prometheus text format at **`/metrics`** on that address.
+When `metrics_listen` is set, **Qrux** serves Prometheus text format at **`/metrics`** on that address.
+
+Metric names use the **`quicproxy_` prefix** (the Rust crate name); this does not change when using Qrux as the product name.
 
 Example:
 

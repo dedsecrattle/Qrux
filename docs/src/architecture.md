@@ -4,7 +4,7 @@ High-level view of how listeners and routing fit together:
 
 ```text
 ┌─────────────────────────────────────────────────────┐
-│                    quicproxy                        │
+│                       Qrux                          │
 │                                                     │
 │  ┌──────────────┐  ┌──────────────┐                 │
 │  │ QUIC/HTTP3   │  │ HTTPS        │  ◄── Alt-Svc   │

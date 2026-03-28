@@ -1,9 +1,9 @@
 # Introduction
 
-**quicproxy** is a QUIC / HTTP/3–terminating proxy that forwards traffic to plain TCP / HTTP/1.1 backends.
+**Qrux** is a QUIC / HTTP/3–terminating proxy that forwards traffic to plain TCP / HTTP/1.1 backends.
 
 ```text
-Client (HTTP/3 over QUIC) ──→ [quicproxy] ──→ Backend (HTTP/1.1 over TCP)
+Client (HTTP/3 over QUIC) ──→ [Qrux] ──→ Backend (HTTP/1.1 over TCP)
 ```
 
 ## Features

@@ -1,13 +1,13 @@
-# quicproxy
+# Qrux
 
-A QUIC/HTTP3-terminating proxy that forwards traffic to plain TCP/HTTP backends.
+**Qrux** is a QUIC/HTTP3-terminating proxy that forwards traffic to plain TCP/HTTP backends.
 
 **Repository:** [github.com/dedsecrattle/Qrux](https://github.com/dedsecrattle/Qrux)
 
 **Documentation:** [dedsecrattle.github.io/Qrux](https://dedsecrattle.github.io/Qrux/) — built from `docs/` with mdBook via [GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site) (**GitHub Actions** source). If the site is empty, enable Pages and run the “Deploy docs” workflow once.
 
 ```
-Client (HTTP/3 over QUIC) ──→ [quicproxy] ──→ Backend (HTTP/1.1 over TCP)
+Client (HTTP/3 over QUIC) ──→ [Qrux] ──→ Backend (HTTP/1.1 over TCP)
 ```
 
 ## Features
@@ -101,7 +101,7 @@ upstream = "127.0.0.1:8080"
 
 ## Prometheus Metrics
 
-Available at `http://127.0.0.1:9090/metrics`:
+Available at `http://127.0.0.1:9090/metrics`. Names use the `quicproxy_` prefix (crate name).
 
 ```
 # Total requests by method, status, and upstream
@@ -134,7 +134,7 @@ Browsers like Chrome will:
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                    quicproxy                        │
+│                       Qrux                          │
 │                                                     │
 │  ┌──────────────┐  ┌──────────────┐                 │
 │  │ QUIC/HTTP3   │  │ HTTPS        │  ◄── Alt-Svc   │
