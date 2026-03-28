@@ -1,3 +1,4 @@
+use crate::config::Limits;
 use crate::metrics;
 use crate::router::Router;
 use crate::upstream::{self, UpstreamPool};
@@ -13,12 +14,13 @@ pub async fn handle_connection(
     router: Arc<Router>,
     pool: Arc<UpstreamPool>,
     sni: Option<String>,
+    limits: Arc<Limits>,
 ) -> Result<()> {
     let h3_conn = h3::server::Connection::new(h3_quinn::Connection::new(connection))
         .await
         .context("Failed to establish H3 connection")?;
 
-    handle_h3_connection(h3_conn, router, pool, sni).await
+    handle_h3_connection(h3_conn, router, pool, sni, limits).await
 }
 
 async fn handle_h3_connection(
@@ -26,6 +28,7 @@ async fn handle_h3_connection(
     router: Arc<Router>,
     pool: Arc<UpstreamPool>,
     sni: Option<String>,
+    limits: Arc<Limits>,
 ) -> Result<()> {
     loop {
         match conn.accept().await {
@@ -33,8 +36,9 @@ async fn handle_h3_connection(
                 let router = Arc::clone(&router);
                 let pool = Arc::clone(&pool);
                 let sni = sni.clone();
+                let limits = Arc::clone(&limits);
                 tokio::spawn(async move {
-                    if let Err(e) = handle_resolver(resolver, router, pool, sni).await {
+                    if let Err(e) = handle_resolver(resolver, router, pool, sni, limits).await {
                         tracing::error!(error = %e, "Request handling error");
                     }
                 });
@@ -44,7 +48,6 @@ async fn handle_h3_connection(
                 break;
             }
             Err(e) => {
-                // Timeout and connection close are normal for idle connections
                 let msg = e.to_string();
                 if msg.contains("Timeout") || msg.contains("closed") {
                     tracing::debug!(error = %e, "Connection closed (idle timeout or client disconnect)");
@@ -64,17 +67,16 @@ async fn handle_resolver(
     router: Arc<Router>,
     pool: Arc<UpstreamPool>,
     sni: Option<String>,
+    limits: Arc<Limits>,
 ) -> Result<()> {
-    // Resolve the request - this can fail if the client disconnects mid-handshake
     let (req, stream) = match resolver.resolve_request().await {
         Ok(r) => r,
         Err(e) => {
-            // Client likely disconnected (e.g., cert rejection) - not a real error
             tracing::debug!(error = %e, "Client disconnected before request completed");
             return Ok(());
         }
     };
-    handle_request(req, stream, router, pool, sni).await
+    handle_request(req, stream, router, pool, sni, limits).await
 }
 
 async fn handle_request(
@@ -83,6 +85,7 @@ async fn handle_request(
     router: Arc<Router>,
     pool: Arc<UpstreamPool>,
     sni: Option<String>,
+    limits: Arc<Limits>,
 ) -> Result<()> {
     let method = req.method().as_str();
     let path = req
@@ -103,7 +106,6 @@ async fn handle_request(
         "Incoming HTTP/3 request"
     );
 
-    // Resolve upstream using SNI first, then authority
     let hostname = sni.as_deref().or(authority);
     let upstream = match router.resolve(hostname) {
         Some(u) => u,
@@ -121,27 +123,46 @@ async fn handle_request(
 
     tracing::debug!(upstream = %upstream, "Forwarding to upstream");
 
-    // Collect headers
     let headers: Vec<(String, String)> = req
         .headers()
         .iter()
         .map(|(k, v)| (k.as_str().to_string(), v.to_str().unwrap_or("").to_string()))
         .collect();
 
-    // Read request body if present
-    let body = read_request_body(&mut stream).await?;
+    let body = match read_request_body(&mut stream, limits.max_request_body_bytes).await {
+        Ok(b) => b,
+        Err(e) => {
+            let msg = format!("{e:#}");
+            if msg.contains("request body too large") {
+                send_error_response(
+                    &mut stream,
+                    StatusCode::PAYLOAD_TOO_LARGE,
+                    "Request body too large",
+                )
+                .await?;
+                return Ok(());
+            }
+            return Err(e);
+        }
+    };
     let body_ref = if body.is_empty() {
         None
     } else {
         Some(body.as_slice())
     };
 
-    // Forward to upstream using connection pool
     let host = authority.unwrap_or("localhost");
     let start = Instant::now();
 
     let (status, result) = match upstream::forward_request_pooled(
-        &pool, upstream, method, path, host, &headers, body_ref,
+        &pool,
+        upstream,
+        method,
+        path,
+        host,
+        &headers,
+        body_ref,
+        limits.as_ref(),
     )
     .await
     {
@@ -150,13 +171,16 @@ async fn handle_request(
             (status, Ok(()))
         }
         Err(e) => {
+            let msg = format!("{e:#}");
+            if msg.contains("timed out") {
+                metrics::record_upstream_timeout();
+            }
             tracing::error!(error = %e, "Upstream error");
-            send_error_response(&mut stream, StatusCode::BAD_GATEWAY, &e.to_string()).await?;
+            send_error_response(&mut stream, StatusCode::BAD_GATEWAY, &msg).await?;
             (502, Err(e))
         }
     };
 
-    // Record metrics
     let duration = start.elapsed().as_secs_f64();
     metrics::record_request(method, status, upstream, duration);
 
@@ -165,10 +189,15 @@ async fn handle_request(
 
 async fn read_request_body(
     stream: &mut RequestStream<h3_quinn::BidiStream<Bytes>, Bytes>,
+    max: usize,
 ) -> Result<Vec<u8>> {
     let mut body = Vec::new();
     while let Some(chunk) = stream.recv_data().await? {
-        body.extend_from_slice(chunk.chunk());
+        let slice = chunk.chunk();
+        if body.len().saturating_add(slice.len()) > max {
+            anyhow::bail!("request body too large");
+        }
+        body.extend_from_slice(slice);
     }
     Ok(body)
 }
@@ -182,7 +211,6 @@ async fn send_response(
     let mut response = Response::builder().status(StatusCode::from_u16(status)?);
 
     for (name, value) in headers {
-        // Skip hop-by-hop headers
         let lower = name.to_lowercase();
         if lower == "transfer-encoding" || lower == "connection" || lower == "keep-alive" {
             continue;

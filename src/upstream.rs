@@ -1,12 +1,13 @@
+use crate::config::Limits;
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
+use tokio::time::timeout;
 
 /// TCP connection pool for upstream servers
-/// Reuses connections when possible to reduce latency
 pub struct UpstreamPool {
     pools: Arc<Mutex<HashMap<String, Vec<TcpStream>>>>,
     max_idle_per_upstream: usize,
@@ -21,12 +22,15 @@ impl UpstreamPool {
     }
 
     /// Get a connection to the upstream, reusing from pool if available
-    pub async fn get(&self, upstream: &str) -> Result<TcpStream> {
+    pub async fn get(
+        &self,
+        upstream: &str,
+        connect_timeout: std::time::Duration,
+    ) -> Result<TcpStream> {
         {
             let mut pools = self.pools.lock().await;
             if let Some(conns) = pools.get_mut(upstream) {
                 while let Some(conn) = conns.pop() {
-                    // Check if connection is still alive by peeking
                     let mut buf = [0u8; 1];
                     match conn.try_read(&mut buf) {
                         Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
@@ -43,8 +47,9 @@ impl UpstreamPool {
         }
 
         tracing::debug!(upstream = %upstream, "Opening new TCP connection");
-        TcpStream::connect(upstream)
+        timeout(connect_timeout, TcpStream::connect(upstream))
             .await
+            .map_err(|_| anyhow::anyhow!("upstream connect timed out"))?
             .with_context(|| format!("Failed to connect to upstream: {}", upstream))
     }
 
@@ -62,67 +67,70 @@ impl UpstreamPool {
     }
 }
 
-/// Forward an HTTP/1.1 request using connection pooling
+/// Forward an HTTP/1.1 request using connection pooling and production limits.
+#[allow(clippy::too_many_arguments)]
 pub async fn forward_request_pooled(
     pool: &UpstreamPool,
     upstream: &str,
     method: &str,
     path: &str,
-    _host: &str, // Original host from client (unused, we use upstream host)
+    _host: &str,
     headers: &[(String, String)],
     body: Option<&[u8]>,
+    limits: &Limits,
 ) -> Result<(u16, Vec<(String, String)>, Vec<u8>)> {
-    let mut stream = pool.get(upstream).await?;
+    let request_timeout = limits.upstream_request_timeout();
+    let connect_timeout = limits.upstream_connect_timeout();
+    let max_resp = limits.max_upstream_response_body_bytes;
 
-    // Extract host from upstream address (without port for standard ports)
-    let upstream_host = upstream.split(':').next().unwrap_or(upstream);
+    let fut = async {
+        let mut stream = pool.get(upstream, connect_timeout).await?;
 
-    // Build HTTP/1.1 request with keep-alive
-    let mut request = format!(
-        "{} {} HTTP/1.1\r\nHost: {}\r\n",
-        method, path, upstream_host
-    );
+        let upstream_host = upstream.split(':').next().unwrap_or(upstream);
 
-    for (name, value) in headers {
-        if name.starts_with(':') || name.eq_ignore_ascii_case("host") {
-            continue;
+        let mut request = format!(
+            "{} {} HTTP/1.1\r\nHost: {}\r\n",
+            method, path, upstream_host
+        );
+
+        for (name, value) in headers {
+            if name.starts_with(':') || name.eq_ignore_ascii_case("host") {
+                continue;
+            }
+            request.push_str(&format!("{}: {}\r\n", name, value));
         }
-        request.push_str(&format!("{}: {}\r\n", name, value));
-    }
 
-    if let Some(body) = body {
-        request.push_str(&format!("Content-Length: {}\r\n", body.len()));
-    }
+        if let Some(body) = body {
+            request.push_str(&format!("Content-Length: {}\r\n", body.len()));
+        }
 
-    request.push_str("Connection: keep-alive\r\n\r\n");
+        request.push_str("Connection: keep-alive\r\n\r\n");
 
-    stream.write_all(request.as_bytes()).await?;
-    if let Some(body) = body {
-        stream.write_all(body).await?;
-    }
+        stream.write_all(request.as_bytes()).await?;
+        if let Some(body) = body {
+            stream.write_all(body).await?;
+        }
 
-    // Read response with proper framing for keep-alive
-    let result = read_http_response(&mut stream).await;
+        let result = read_http_response(&mut stream, max_resp).await;
 
-    match &result {
-        Ok(_) => {
-            // Return connection to pool for reuse
+        if result.is_ok() {
             pool.put(upstream, stream).await;
         }
-        Err(_) => {
-            // Connection errored, don't return to pool
-        }
-    }
 
-    result
+        result
+    };
+
+    timeout(request_timeout, fut)
+        .await
+        .map_err(|_| anyhow::anyhow!("upstream request timed out"))?
 }
 
 async fn read_http_response(
     stream: &mut TcpStream,
+    max_body: usize,
 ) -> Result<(u16, Vec<(String, String)>, Vec<u8>)> {
     let mut reader = BufReader::new(stream);
 
-    // Read status line
     let mut status_line = String::new();
     reader.read_line(&mut status_line).await?;
     let status_line = status_line.trim();
@@ -133,7 +141,6 @@ async fn read_http_response(
     }
     let status_code: u16 = parts[1].parse().context("Invalid status code")?;
 
-    // Read headers
     let mut headers = Vec::new();
     let mut content_length: Option<usize> = None;
     let mut chunked = false;
@@ -163,22 +170,26 @@ async fn read_http_response(
         }
     }
 
-    // Read body based on framing
     let body = if chunked {
-        read_chunked_body(&mut reader).await?
+        read_chunked_body(&mut reader, max_body).await?
     } else if let Some(len) = content_length {
+        if len > max_body {
+            anyhow::bail!("upstream response body exceeds configured limit");
+        }
         let mut body = vec![0u8; len];
         reader.read_exact(&mut body).await?;
         body
     } else {
-        // No body or read until close (for HTTP/1.0 style responses)
         Vec::new()
     };
 
     Ok((status_code, headers, body))
 }
 
-async fn read_chunked_body<R: AsyncBufReadExt + Unpin>(reader: &mut R) -> Result<Vec<u8>> {
+async fn read_chunked_body<R: AsyncBufReadExt + Unpin>(
+    reader: &mut R,
+    max_body: usize,
+) -> Result<Vec<u8>> {
     let mut body = Vec::new();
 
     loop {
@@ -189,17 +200,19 @@ async fn read_chunked_body<R: AsyncBufReadExt + Unpin>(reader: &mut R) -> Result
         let chunk_size = usize::from_str_radix(size_str, 16).context("Invalid chunk size")?;
 
         if chunk_size == 0 {
-            // Read trailing CRLF
             let mut trailing = String::new();
             reader.read_line(&mut trailing).await?;
             break;
+        }
+
+        if body.len() + chunk_size > max_body {
+            anyhow::bail!("upstream response body exceeds configured limit");
         }
 
         let mut chunk = vec![0u8; chunk_size];
         reader.read_exact(&mut chunk).await?;
         body.extend_from_slice(&chunk);
 
-        // Read CRLF after chunk
         let mut crlf = [0u8; 2];
         reader.read_exact(&mut crlf).await?;
     }

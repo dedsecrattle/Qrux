@@ -1,3 +1,4 @@
+use crate::config::Limits;
 use crate::metrics;
 use crate::router::Router;
 use crate::upstream::UpstreamPool;
@@ -15,6 +16,7 @@ use std::time::Instant;
 use tokio::net::TcpListener;
 use tokio_rustls::TlsAcceptor;
 
+#[allow(clippy::too_many_arguments)]
 pub async fn run(
     listen_addr: SocketAddr,
     quic_port: u16,
@@ -22,6 +24,8 @@ pub async fn run(
     key: PrivateKeyDer<'static>,
     router: Arc<Router>,
     pool: Arc<UpstreamPool>,
+    limits: Arc<Limits>,
+    mut shutdown: tokio::sync::broadcast::Receiver<()>,
 ) -> Result<()> {
     let mut rustls_config = rustls::ServerConfig::builder()
         .with_no_client_auth()
@@ -40,38 +44,52 @@ pub async fn run(
     );
 
     loop {
-        let (tcp_stream, remote_addr) = listener.accept().await?;
-        let tls_acceptor = tls_acceptor.clone();
-        let router = Arc::clone(&router);
-        let pool = Arc::clone(&pool);
-
-        tokio::spawn(async move {
-            match tls_acceptor.accept(tcp_stream).await {
-                Ok(tls_stream) => {
-                    let io = TokioIo::new(tls_stream);
-
-                    let service = service_fn(move |req: Request<hyper::body::Incoming>| {
-                        let router = Arc::clone(&router);
-                        let pool = Arc::clone(&pool);
-                        async move { handle_request(req, router, pool, quic_port, remote_addr).await }
-                    });
-
-                    if let Err(e) = http1::Builder::new().serve_connection(io, service).await {
-                        tracing::debug!(error = %e, "HTTPS connection error");
-                    }
-                }
-                Err(e) => {
-                    tracing::debug!(error = %e, "TLS handshake failed");
-                }
+        tokio::select! {
+            _ = shutdown.recv() => {
+                tracing::info!(addr = %listen_addr, "HTTPS fallback server stopped");
+                break;
             }
-        });
+            accept = listener.accept() => {
+                let (tcp_stream, remote_addr) = accept.context("HTTPS accept")?;
+                let tls_acceptor = tls_acceptor.clone();
+                let router = Arc::clone(&router);
+                let pool = Arc::clone(&pool);
+                let limits = Arc::clone(&limits);
+
+                tokio::spawn(async move {
+                    match tls_acceptor.accept(tcp_stream).await {
+                        Ok(tls_stream) => {
+                            let io = TokioIo::new(tls_stream);
+
+                            let service = service_fn(move |req: Request<hyper::body::Incoming>| {
+                                let router = Arc::clone(&router);
+                                let pool = Arc::clone(&pool);
+                                let limits = Arc::clone(&limits);
+                                async move {
+                                    handle_request(req, router, pool, limits, quic_port, remote_addr).await
+                                }
+                            });
+
+                            if let Err(e) = http1::Builder::new().serve_connection(io, service).await {
+                                tracing::debug!(error = %e, "HTTPS connection error");
+                            }
+                        }
+                        Err(e) => {
+                            tracing::debug!(error = %e, "TLS handshake failed");
+                        }
+                    }
+                });
+            }
+        }
     }
+    Ok(())
 }
 
 async fn handle_request(
     req: Request<hyper::body::Incoming>,
     router: Arc<Router>,
     pool: Arc<UpstreamPool>,
+    limits: Arc<Limits>,
     quic_port: u16,
     _remote_addr: SocketAddr,
 ) -> std::result::Result<Response<Full<Bytes>>, std::convert::Infallible> {
@@ -96,7 +114,6 @@ async fn handle_request(
         "Incoming HTTPS request (fallback)"
     );
 
-    // Resolve upstream
     let upstream = match router.resolve(host.as_deref()) {
         Some(u) => u.to_string(),
         None => {
@@ -108,7 +125,6 @@ async fn handle_request(
         }
     };
 
-    // Collect headers
     let headers: Vec<(String, String)> = req
         .headers()
         .iter()
@@ -117,7 +133,6 @@ async fn handle_request(
         })
         .collect();
 
-    // Forward to upstream
     let start = Instant::now();
 
     match crate::upstream::forward_request_pooled(
@@ -128,6 +143,7 @@ async fn handle_request(
         host.as_deref().unwrap_or("localhost"),
         &headers,
         None,
+        limits.as_ref(),
     )
     .await
     {
@@ -138,8 +154,6 @@ async fn handle_request(
             let mut response =
                 Response::builder().status(StatusCode::from_u16(status).unwrap_or(StatusCode::OK));
 
-            // Add Alt-Svc header to advertise HTTP/3
-            // Use full format with persist flag for better browser support
             response = response.header(
                 "alt-svc",
                 format!(
@@ -148,7 +162,6 @@ async fn handle_request(
                 ),
             );
 
-            // Copy response headers
             for (name, value) in resp_headers {
                 let lower = name.to_lowercase();
                 if lower == "transfer-encoding" || lower == "connection" || lower == "keep-alive" {
@@ -160,6 +173,10 @@ async fn handle_request(
             Ok(response.body(Full::new(Bytes::from(resp_body))).unwrap())
         }
         Err(e) => {
+            let msg = format!("{e:#}");
+            if msg.contains("timed out") {
+                metrics::record_upstream_timeout();
+            }
             tracing::error!(error = %e, "Upstream error");
             metrics::record_request(&method, 502, &upstream, start.elapsed().as_secs_f64());
             Ok(build_response(

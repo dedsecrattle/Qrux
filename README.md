@@ -8,6 +8,8 @@
 
 **Documentation:** [dedsecrattle.github.io/Qrux](https://dedsecrattle.github.io/Qrux/) — built from `docs/` with mdBook via [GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site) (**GitHub Actions** source). If the site is empty, enable Pages and run the “Deploy docs” workflow once.
 
+**Production:** configurable upstream timeouts, request/response size limits, graceful shutdown on SIGINT/SIGTERM, and startup config validation — see the book’s *Production* and *Configuration* chapters.
+
 ```
 Client (HTTP/3 over QUIC) ──→ [Qrux] ──→ Backend (HTTP/1.1 over TCP)
 ```
@@ -106,6 +108,9 @@ upstream = "127.0.0.1:8080"
 Available at `http://127.0.0.1:9090/metrics`. Metric names use the `qrux_` prefix.
 
 ```
+# Upstream requests that hit upstream_request_timeout_secs
+qrux_upstream_timeouts_total 0
+
 # Total requests by method, status, and upstream
 qrux_http_requests_total{method="GET",status="200",upstream="example.com:80"} 42
 

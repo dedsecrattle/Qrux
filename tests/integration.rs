@@ -281,6 +281,7 @@ upstream = "127.0.0.1:9000"
 "#;
 
     let config: qrux::config::Config = toml::from_str(config_str).unwrap();
+    config.validate().unwrap();
 
     assert_eq!(config.server.listen, "0.0.0.0:4433".parse().unwrap());
     assert_eq!(config.routes.len(), 2);
@@ -312,6 +313,7 @@ upstream = "default:80"
 "#;
 
     let config: qrux::config::Config = toml::from_str(config_str).unwrap();
+    config.validate().unwrap();
 
     assert_eq!(config.server.listen, "0.0.0.0:4433".parse().unwrap());
     assert_eq!(

@@ -36,4 +36,10 @@ qrux_active_connections 5
 qrux_upstream_pool_connections{upstream="example.com:80"} 3
 ```
 
+**Upstream request timeouts** (whole request exceeded `upstream_request_timeout_secs`):
+
+```text
+qrux_upstream_timeouts_total 2
+```
+
 Scrape this endpoint with Prometheus or inspect it with `curl` while debugging.

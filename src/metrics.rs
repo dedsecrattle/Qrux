@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use lazy_static::lazy_static;
 use prometheus::{
     register_counter_vec, register_gauge, register_histogram_vec, CounterVec, Encoder, Gauge,
@@ -9,6 +9,12 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
 
 lazy_static! {
+    pub static ref UPSTREAM_TIMEOUTS_TOTAL: prometheus::IntCounter =
+        prometheus::register_int_counter!(
+            "qrux_upstream_timeouts_total",
+            "Upstream requests that exceeded upstream_request_timeout_secs"
+        )
+        .unwrap();
     pub static ref HTTP_REQUESTS_TOTAL: CounterVec = register_counter_vec!(
         "qrux_http_requests_total",
         "Total number of HTTP requests",
@@ -43,6 +49,10 @@ pub fn gather_metrics() -> String {
     String::from_utf8(buffer).unwrap()
 }
 
+pub fn record_upstream_timeout() {
+    UPSTREAM_TIMEOUTS_TOTAL.inc();
+}
+
 pub fn record_request(method: &str, status: u16, upstream: &str, duration_secs: f64) {
     HTTP_REQUESTS_TOTAL
         .with_label_values(&[method, &status.to_string(), upstream])
@@ -67,26 +77,36 @@ pub fn set_pool_size(upstream: &str, size: usize) {
         .set(size as f64);
 }
 
-pub async fn serve_metrics(addr: SocketAddr) -> Result<()> {
+pub async fn serve_metrics(
+    addr: SocketAddr,
+    mut shutdown: tokio::sync::broadcast::Receiver<()>,
+) -> Result<()> {
     let listener = TcpListener::bind(addr).await?;
     tracing::info!(addr = %addr, "Metrics server listening");
 
     loop {
-        let (mut socket, _) = listener.accept().await?;
-
-        tokio::spawn(async move {
-            let metrics = gather_metrics();
-            let response = format!(
-                "HTTP/1.1 200 OK\r\n\
-                Content-Type: text/plain; version=0.0.4; charset=utf-8\r\n\
-                Content-Length: {}\r\n\
-                \r\n\
-                {}",
-                metrics.len(),
-                metrics
-            );
-
-            let _ = socket.write_all(response.as_bytes()).await;
-        });
+        tokio::select! {
+            _ = shutdown.recv() => {
+                tracing::info!(addr = %addr, "Metrics server stopped");
+                break;
+            }
+            accept = listener.accept() => {
+                let (mut socket, _) = accept.context("metrics accept")?;
+                tokio::spawn(async move {
+                    let metrics = gather_metrics();
+                    let response = format!(
+                        "HTTP/1.1 200 OK\r\n\
+                        Content-Type: text/plain; version=0.0.4; charset=utf-8\r\n\
+                        Content-Length: {}\r\n\
+                        \r\n\
+                        {}",
+                        metrics.len(),
+                        metrics
+                    );
+                    let _ = socket.write_all(response.as_bytes()).await;
+                });
+            }
+        }
     }
+    Ok(())
 }
