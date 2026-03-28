@@ -23,6 +23,14 @@ RUN apt-get update \
 
 COPY --from=builder /app/target/release/qrux /usr/local/bin/qrux
 
+# Shown in `docker inspect` and on Docker Hub metadata
+LABEL org.opencontainers.image.title="Qrux" \
+    org.opencontainers.image.description="QUIC/HTTP3 terminating proxy to TCP HTTP/1.1 backends" \
+    org.opencontainers.image.url="https://github.com/dedsecrattle/Qrux" \
+    org.opencontainers.image.source="https://github.com/dedsecrattle/Qrux" \
+    org.opencontainers.image.documentation="https://dedsecrattle.github.io/Qrux/" \
+    org.opencontainers.image.licenses="MIT"
+
 # QUIC is UDP; HTTPS fallback is TCP; metrics is TCP
 EXPOSE 8443/udp 8444/tcp 9090/tcp
 
