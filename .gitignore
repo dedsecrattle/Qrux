@@ -1,3 +1,6 @@
+# mdBook output (GitHub Pages build artifact)
+/book/
+
 # Rust build artifacts
 /target/
 debug/

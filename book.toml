@@ -1,0 +1,14 @@
+[book]
+title = "quicproxy"
+authors = ["quicproxy contributors"]
+description = "QUIC/HTTP3 terminating proxy — documentation"
+language = "en"
+src = "docs/src"
+
+[build]
+build-dir = "book"
+
+[output.html]
+git-repository-url = "https://github.com/dedsecrattle/Qrux"
+edit-url-template = "https://github.com/dedsecrattle/Qrux/edit/main/docs/src/{path}"
+smart-punctuation = true

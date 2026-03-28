@@ -2,6 +2,10 @@
 
 A QUIC/HTTP3-terminating proxy that forwards traffic to plain TCP/HTTP backends.
 
+**Repository:** [github.com/dedsecrattle/Qrux](https://github.com/dedsecrattle/Qrux)
+
+**Documentation:** [dedsecrattle.github.io/Qrux](https://dedsecrattle.github.io/Qrux/) — built from `docs/` with mdBook via [GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site) (**GitHub Actions** source). If the site is empty, enable Pages and run the “Deploy docs” workflow once.
+
 ```
 Client (HTTP/3 over QUIC) ──→ [quicproxy] ──→ Backend (HTTP/1.1 over TCP)
 ```
