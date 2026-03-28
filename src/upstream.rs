@@ -76,9 +76,12 @@ pub async fn forward_request_pooled(
 
     // Extract host from upstream address (without port for standard ports)
     let upstream_host = upstream.split(':').next().unwrap_or(upstream);
-    
+
     // Build HTTP/1.1 request with keep-alive
-    let mut request = format!("{} {} HTTP/1.1\r\nHost: {}\r\n", method, path, upstream_host);
+    let mut request = format!(
+        "{} {} HTTP/1.1\r\nHost: {}\r\n",
+        method, path, upstream_host
+    );
 
     for (name, value) in headers {
         if name.starts_with(':') || name.eq_ignore_ascii_case("host") {
@@ -114,7 +117,9 @@ pub async fn forward_request_pooled(
     result
 }
 
-async fn read_http_response(stream: &mut TcpStream) -> Result<(u16, Vec<(String, String)>, Vec<u8>)> {
+async fn read_http_response(
+    stream: &mut TcpStream,
+) -> Result<(u16, Vec<(String, String)>, Vec<u8>)> {
     let mut reader = BufReader::new(stream);
 
     // Read status line
@@ -181,8 +186,7 @@ async fn read_chunked_body<R: AsyncBufReadExt + Unpin>(reader: &mut R) -> Result
         reader.read_line(&mut size_line).await?;
         let size_str = size_line.trim();
 
-        let chunk_size =
-            usize::from_str_radix(size_str, 16).context("Invalid chunk size")?;
+        let chunk_size = usize::from_str_radix(size_str, 16).context("Invalid chunk size")?;
 
         if chunk_size == 0 {
             // Read trailing CRLF
@@ -202,4 +206,3 @@ async fn read_chunked_body<R: AsyncBufReadExt + Unpin>(reader: &mut R) -> Result
 
     Ok(body)
 }
-

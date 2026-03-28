@@ -20,7 +20,7 @@ pub async fn run(config: Config) -> Result<()> {
         let (https_certs, https_key) = load_certs_and_key(&config)?;
         let router_clone = Arc::clone(&router);
         let pool_clone = Arc::clone(&pool);
-        
+
         tokio::spawn(async move {
             if let Err(e) = https_fallback::run(
                 https_addr,
@@ -29,7 +29,9 @@ pub async fn run(config: Config) -> Result<()> {
                 https_key,
                 router_clone,
                 pool_clone,
-            ).await {
+            )
+            .await
+            {
                 tracing::error!(error = %e, "HTTPS fallback server error");
             }
         });
@@ -43,7 +45,7 @@ pub async fn run(config: Config) -> Result<()> {
 
     // ALPN protocols for HTTP/3 - Chrome uses "h3"
     rustls_config.alpn_protocols = vec![b"h3".to_vec()];
-    
+
     // Disable 0-RTT for now to simplify debugging
     // rustls_config.max_early_data_size = 0xFFFFFFFF;
 
@@ -101,7 +103,9 @@ async fn handle_connection(
     proxy::handle_connection(connection, router, pool, sni).await
 }
 
-fn load_certs_and_key(config: &Config) -> Result<(Vec<CertificateDer<'static>>, PrivateKeyDer<'static>)> {
+fn load_certs_and_key(
+    config: &Config,
+) -> Result<(Vec<CertificateDer<'static>>, PrivateKeyDer<'static>)> {
     let cert_path = &config.server.cert;
     let key_path = &config.server.key;
 

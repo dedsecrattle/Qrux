@@ -53,15 +53,10 @@ pub async fn run(
                     let service = service_fn(move |req: Request<hyper::body::Incoming>| {
                         let router = Arc::clone(&router);
                         let pool = Arc::clone(&pool);
-                        async move {
-                            handle_request(req, router, pool, quic_port, remote_addr).await
-                        }
+                        async move { handle_request(req, router, pool, quic_port, remote_addr).await }
                     });
 
-                    if let Err(e) = http1::Builder::new()
-                        .serve_connection(io, service)
-                        .await
-                    {
+                    if let Err(e) = http1::Builder::new().serve_connection(io, service).await {
                         tracing::debug!(error = %e, "HTTPS connection error");
                     }
                 }
@@ -82,12 +77,14 @@ async fn handle_request(
 ) -> std::result::Result<Response<Full<Bytes>>, std::convert::Infallible> {
     let method = req.method().as_str().to_string();
     let uri = req.uri().clone();
-    let path = uri.path_and_query()
+    let path = uri
+        .path_and_query()
         .map(|pq: &http::uri::PathAndQuery| pq.as_str())
         .unwrap_or("/")
         .to_string();
-    
-    let host: Option<String> = req.headers()
+
+    let host: Option<String> = req
+        .headers()
         .get(http::header::HOST)
         .and_then(|h: &http::HeaderValue| h.to_str().ok())
         .map(|s: &str| s.to_string());
@@ -122,7 +119,7 @@ async fn handle_request(
 
     // Forward to upstream
     let start = Instant::now();
-    
+
     match crate::upstream::forward_request_pooled(
         &pool,
         &upstream,
@@ -131,19 +128,24 @@ async fn handle_request(
         host.as_deref().unwrap_or("localhost"),
         &headers,
         None,
-    ).await {
+    )
+    .await
+    {
         Ok((status, resp_headers, resp_body)) => {
             let duration = start.elapsed().as_secs_f64();
             metrics::record_request(&method, status, &upstream, duration);
 
-            let mut response = Response::builder()
-                .status(StatusCode::from_u16(status).unwrap_or(StatusCode::OK));
+            let mut response =
+                Response::builder().status(StatusCode::from_u16(status).unwrap_or(StatusCode::OK));
 
             // Add Alt-Svc header to advertise HTTP/3
             // Use full format with persist flag for better browser support
             response = response.header(
                 "alt-svc",
-                format!("h3=\":{}\"; ma=86400, h3-29=\":{}\"; ma=86400", quic_port, quic_port)
+                format!(
+                    "h3=\":{}\"; ma=86400, h3-29=\":{}\"; ma=86400",
+                    quic_port, quic_port
+                ),
             );
 
             // Copy response headers
@@ -173,7 +175,13 @@ fn build_response(status: StatusCode, body: &str, quic_port: u16) -> Response<Fu
     Response::builder()
         .status(status)
         .header("content-type", "text/plain")
-        .header("alt-svc", format!("h3=\":{}\"; ma=86400, h3-29=\":{}\"; ma=86400", quic_port, quic_port))
+        .header(
+            "alt-svc",
+            format!(
+                "h3=\":{}\"; ma=86400, h3-29=\":{}\"; ma=86400",
+                quic_port, quic_port
+            ),
+        )
         .body(Full::new(Bytes::from(body.to_string())))
         .unwrap()
 }

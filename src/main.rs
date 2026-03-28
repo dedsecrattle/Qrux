@@ -1,6 +1,6 @@
 use anyhow::Result;
-use quicproxy::{config, server};
 use clap::Parser;
+use quicproxy::{config, server};
 use std::path::PathBuf;
 use tracing_subscriber::EnvFilter;
 

@@ -109,8 +109,12 @@ async fn handle_request(
         Some(u) => u,
         None => {
             tracing::warn!(hostname = ?hostname, "No upstream configured");
-            send_error_response(&mut stream, StatusCode::BAD_GATEWAY, "No upstream configured")
-                .await?;
+            send_error_response(
+                &mut stream,
+                StatusCode::BAD_GATEWAY,
+                "No upstream configured",
+            )
+            .await?;
             return Ok(());
         }
     };
@@ -135,8 +139,12 @@ async fn handle_request(
     // Forward to upstream using connection pool
     let host = authority.unwrap_or("localhost");
     let start = Instant::now();
-    
-    let (status, result) = match upstream::forward_request_pooled(&pool, upstream, method, path, host, &headers, body_ref).await {
+
+    let (status, result) = match upstream::forward_request_pooled(
+        &pool, upstream, method, path, host, &headers, body_ref,
+    )
+    .await
+    {
         Ok((status, resp_headers, resp_body)) => {
             send_response(&mut stream, status, &resp_headers, &resp_body).await?;
             (status, Ok(()))
@@ -147,11 +155,11 @@ async fn handle_request(
             (502, Err(e))
         }
     };
-    
+
     // Record metrics
     let duration = start.elapsed().as_secs_f64();
     metrics::record_request(method, status, upstream, duration);
-    
+
     result
 }
 
