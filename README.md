@@ -219,54 +219,6 @@ cp docker/proxy.toml.example docker/proxy.toml
 docker compose up --build
 ```
 
-### GitHub Container Registry (GHCR)
-
-On pushes to `main`/`master` and version tags `v*`, the [Docker workflow](.github/workflows/docker.yml) publishes to **`ghcr.io/<owner>/qrux`**. Make the package **public** under the repo’s **Packages** settings if you want anonymous `docker pull`.
-
-```bash
-docker pull ghcr.io/dedsecrattle/qrux:latest
-```
-
-### Docker Hub
-
-To **also push the same image to [Docker Hub](https://hub.docker.com/)** from CI:
-
-1. Create an **access token** on Docker Hub: [Account settings → Security → New access token](https://hub.docker.com/settings/security).
-2. In your GitHub repo → **Settings → Secrets and variables → Actions**:
-   - **Repository secret:** `DOCKERHUB_TOKEN` = that token.
-   - **Repository variable:** `DOCKERHUB_USERNAME` = your Docker Hub username (e.g. `dedsecrattle`).
-
-The next workflow run will log in to Docker Hub and push **`$DOCKERHUB_USERNAME/qrux`** with the same tags as GHCR (`latest`, semver on `v*` tags, etc.).
-
-Pull from Docker Hub:
-
-```bash
-docker pull dedsecrattle/qrux:latest
-```
-
-(Use your Docker Hub namespace instead of `dedsecrattle` if different.)
-
-#### Docker Hub overview (description & readme on hub.docker.com)
-
-The empty **Overview** is filled in **on Docker Hub**, not from GitHub automatically:
-
-1. Open your repo → **Manage repository** (or **Settings**).
-2. Set the **short description** (one line under the title).
-3. Paste a **full description** — Docker Hub accepts **Markdown**. You can copy [`docker/dockerhub-overview.md`](docker/dockerhub-overview.md) from this repo and adjust links/names.
-4. Optionally set **Categories**, **License**, and a **README**-style overview in the same editor.
-
-After the next image push, **OCI labels** from the `Dockerfile` (`org.opencontainers.image.*`) also improve how the image is described in clients and on the hub.
-
-### Push manually (any registry)
-
-From a local build:
-
-```bash
-docker build -t myuser/qrux:v0.1.1 .
-docker login
-docker push myuser/qrux:v0.1.1
-```
-
 ## License
 
 MIT
